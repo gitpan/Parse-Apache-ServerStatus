@@ -5,7 +5,7 @@ use Parse::Apache::ServerStatus;
 
 my $request  = 'http://localhost/server-status';
 my $timeout  = 10;
-my $prs      = new Parse::Apache::ServerStatus;
+my $prs      = Parse::Apache::ServerStatus->new();
 my @order    = qw(r i p _ S R W K D C L G I .);
 my $head_int = 20;
 my $interval = 3;

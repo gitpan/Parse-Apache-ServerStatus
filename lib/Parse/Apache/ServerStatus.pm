@@ -131,14 +131,15 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use strict;
 use warnings;
 use Carp qw(croak);
 use LWP::UserAgent;
 use Params::Validate;
+use vars qw/$ERRSTR/;
+$ERRSTR = defined;
 
 sub new {
    my $class = shift;
@@ -175,12 +176,12 @@ sub request {
 
    my %opts = Params::Validate::validate(@_, {
       url => {
-         type => Params::Validate::SCALAR,
+         type  => Params::Validate::SCALAR,
          regex => qr{^http://.+},
       },
       timeout => {
-         type => Params::Validate::SCALAR,
-         regex => qr/^\d+$/,
+         type    => Params::Validate::SCALAR,
+         regex   => qr/^\d+\z/,
          default => 180,
       },
    });
@@ -197,8 +198,7 @@ sub request {
 }
 
 sub content {
-   my $self = shift;
-   return $self->{content};
+   $_[0]->{content};
 }
 
 sub parse {
@@ -218,8 +218,7 @@ sub parse {
 
    my $rest = ();
 
-   ($data{p}, $data{r}, $data{i}, $rest) =
-      $content =~ $regexes->{$version};
+   ($data{p}, $data{r}, $data{i}, $rest) = $content =~ $regexes->{$version};
 
    $rest =~ s/\n//g;
    $data{$_}++ for (split //, $rest);
@@ -227,17 +226,15 @@ sub parse {
    return \%data;
 }
 
-sub errstr { return $__PACKAGE__::errstr }
+sub errstr { return $ERRSTR }
 
 #
 # private stuff
 #
 
 sub _raise_error {
-   my $self   = shift;
-   my $class  = ref($self);
-   my $errstr = shift;
-   $__PACKAGE__::errstr = $errstr || '';
+   my $self = shift;
+   $ERRSTR  = shift;
    return undef;
 }
 

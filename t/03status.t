@@ -17,9 +17,8 @@ _SRWKDCLGI.
 </pre>
 EOT
 
-my $apss = new Parse::Apache::ServerStatus;
-my ($p, $r, $i, $rest) =
-   $content =~ $apss->{rx}->{2};
+my $prs = new Parse::Apache::ServerStatus;
+my ($p, $r, $i, $rest) = $content =~ $prs->{rx}->{2};
 
 ok($p == 1, "parents");
 ok($r == 2, "requests");
