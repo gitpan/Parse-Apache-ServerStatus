@@ -43,6 +43,8 @@ METHODS
        r    Requests currenty being processed
        i    Idle workers
        p    Parents
+       ta   Total accesses
+       tt   Total traffic
        _    Waiting for Connection
        S    Starting up
        R    Reading Request

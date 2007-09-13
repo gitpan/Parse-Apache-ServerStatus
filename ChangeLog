@@ -1,3 +1,6 @@
+0.03    Released at 2007-09-13.
+        Added furhter server-status informations: Total accesses +
+          Total Traffic. The keys are ta and tt.
 0.02	Released at 2007-07-10.
         Did some code improvements that annoys me a long time.
 0.01	Released at 2007-04-29.

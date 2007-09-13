@@ -2,16 +2,16 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-          'PL_FILES' => {},
-          'INSTALLDIRS' => 'site',
           'NAME' => 'Parse::Apache::ServerStatus',
-          'EXE_FILES' => [],
           'VERSION_FROM' => 'lib/Parse/Apache/ServerStatus.pm',
           'PREREQ_PM' => {
-                           'Test::More' => 0,
-                           'Params::Validate' => 0,
-                           'LWP::UserAgent' => 0,
-                           'Carp' => 0
-                         }
+                           'Carp' => '0',
+                           'LWP::UserAgent' => '0',
+                           'Params::Validate' => '0',
+                           'Test::More' => '0'
+                         },
+          'INSTALLDIRS' => 'site',
+          'EXE_FILES' => [],
+          'PL_FILES' => {}
         )
 ;

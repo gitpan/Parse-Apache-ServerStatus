@@ -48,6 +48,8 @@ the parsed content. There are diffenrent keys that contains the following counts
    r    Requests currenty being processed
    i    Idle workers
    p    Parents
+   ta   Total accesses
+   tt   Total traffic
    _    Waiting for Connection
    S    Starting up
    R    Reading Request
@@ -131,7 +133,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use strict;
 use warnings;
@@ -145,15 +147,46 @@ sub new {
    my $class = shift;
    my %self  = ();
 
+   # EXAMPLE apache
+   # Current Time: Thursday, 13-Sep-2007 13:19:05 CEST<br>
+   # Restart Time: Thursday, 13-Sep-2007 13:13:20 CEST<br>
+   # Parent Server Generation: 1 <br>
+   # Server uptime:  5 minutes 45 seconds<br>
+   # Total accesses: 2 - Total Traffic: 0 kB<br>
+   # CPU Usage: u0 s0 cu0 cs0<br>
+   # .0058 requests/sec - 0 B/second - 0 B/request<br>
+   # 
+   # 2 requests currently being processed, 7 idle servers
+   # <PRE>_SRWKDCLGI.
+   # _SRWKDCLGI.
+   # </PRE>
+
    $self{rx}{1} = qr{
-      Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+
+      Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+?
+      Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+(\d+)\s+[kmg]{0,1}B.+?
       (\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+servers.+?
       <PRE>([_SRWKDCLGI.\n]+)
       </PRE>
    }xs;
 
+   # EXAMPLE apache2
+   # <dl><dt>Server Version: Apache/2.2.3 (Debian) mod_fastcgi/2.4.2 mod_ssl/2.2.3 OpenSSL/0.9.8c</dt>
+   # <dt>Server Built: Jun 17 2007 20:24:06
+   # </dt></dl><hr /><dl>
+   # <dt>Current Time: Thursday, 13-Sep-2007 13:07:35 CEST</dt>
+   # <dt>Restart Time: Thursday, 13-Sep-2007 13:07:31 CEST</dt>
+   # <dt>Parent Server Generation: 1</dt>
+   # <dt>Server uptime:  3 seconds</dt>
+   # <dt>Total accesses: 0 - Total Traffic: 0 kB</dt>
+   # <dt>CPU Usage: u0 s0 cu0 cs0<dt>0 requests/sec - 0 B/second - </dt>
+   # <dt>2 requests currently being processed, 7 idle workers</dt>
+   # </dl><pre>_SRWKDCLGI.
+   # _SRWKDCLGI.
+   # </pre>
+
    $self{rx}{2} = qr{
-      <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+
+      <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+?
+      Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+(\d+)\s+[kmg]{0,1}B</dt>.+?
       <dt>(\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+workers</dt>.+
       </dl><pre>([_SRWKDCLGI.\n]+)
       </pre>
@@ -206,7 +239,7 @@ sub parse {
    my $content = $_[0] ? shift : $self->{content};
    $self->_raise_error("no content received") unless $content;
    my $regexes = $self->{rx};
-   my %data    = map { $_ => 0 } qw(r i p _ S R W K D C L G I .);
+   my %data    = map { $_ => 0 } qw(r i p ta tt _ S R W K D C L G I .);
 
    my ($version) = $content =~ m{Server\s+Version:\s+Apache/(\d)};
 
@@ -218,7 +251,7 @@ sub parse {
 
    my $rest = ();
 
-   ($data{p}, $data{r}, $data{i}, $rest) = $content =~ $regexes->{$version};
+   ($data{p}, $data{ta}, $data{tt}, $data{r}, $data{i}, $rest) = $content =~ $regexes->{$version};
 
    $rest =~ s/\n//g;
    $data{$_}++ for (split //, $rest);
