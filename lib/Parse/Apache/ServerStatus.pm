@@ -6,7 +6,7 @@ Parse::Apache::ServerStatus - Simple module to parse apache's server-status.
 
     use Parse::Apache::ServerStatus;
 
-    my $prs = new Parse::Apache::ServerStatus;
+    my $prs = Parse::Apache::ServerStatus->new;
 
     $prs->request(
        url     => 'http://localhost/server-status',
@@ -45,22 +45,22 @@ it is not set.
 Call C<parse()> to parse the server status. This method returns a hash reference with
 the parsed content. There are diffenrent keys that contains the following counts:
 
-   r    Requests currenty being processed
-   i    Idle workers
-   p    Parents
-   ta   Total accesses
-   tt   Total traffic
-   _    Waiting for Connection
-   S    Starting up
-   R    Reading Request
-   W    Sending Reply
-   K    Keepalive (read)
-   D    DNS Lookup
-   C    Closing connection
-   L    Logging
-   G    Gracefully finishing
-   I    Idle cleanup of worker
-   .    Open slot with no current process
+    p    Parents
+    ta   Total accesses
+    tt   Total traffic
+    r    Requests currenty being processed
+    i    Idle workers
+    _    Waiting for Connection
+    S    Starting up
+    R    Reading Request
+    W    Sending Reply
+    K    Keepalive (read)
+    D    DNS Lookup
+    C    Closing connection
+    L    Logging
+    G    Gracefully finishing
+    I    Idle cleanup of worker
+    .    Open slot with no current process
 
 It's possible to call C<parse()> with the content as argument.
 
@@ -133,142 +133,151 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use strict;
 use warnings;
 use Carp qw(croak);
 use LWP::UserAgent;
 use Params::Validate;
-use vars qw/$ERRSTR/;
-$ERRSTR = defined;
+$Parse::Apache::ServerStatus::ERRSTR = defined;
 
 sub new {
-   my $class = shift;
-   my %self  = ();
+    my $class = shift || __PACKAGE__;
+    my $self  = bless {}, $class;
 
-   # EXAMPLE apache
-   # Current Time: Thursday, 13-Sep-2007 13:19:05 CEST<br>
-   # Restart Time: Thursday, 13-Sep-2007 13:13:20 CEST<br>
-   # Parent Server Generation: 1 <br>
-   # Server uptime:  5 minutes 45 seconds<br>
-   # Total accesses: 2 - Total Traffic: 0 kB<br>
-   # CPU Usage: u0 s0 cu0 cs0<br>
-   # .0058 requests/sec - 0 B/second - 0 B/request<br>
-   # 
-   # 2 requests currently being processed, 7 idle servers
-   # <PRE>_SRWKDCLGI.
-   # _SRWKDCLGI.
-   # </PRE>
+    # EXAMPLE apache
+    # Server Version: Apache/1.3.34 (Ubuntu)<br>
+    # Server Built: Mar  8 2007 00:01:35<br>
+    # <hr>
+    # Current Time: Saturday, 13-Oct-2007 20:41:00 CEST<br>
+    # Restart Time: Saturday, 13-Oct-2007 20:30:09 CEST<br>
+    # Parent Server Generation: 0 <br>
+    # Server uptime:  10 minutes 51 seconds<br>
+    # Total accesses: 239409 - Total Traffic: 1.7 MB<br>
+    # CPU Usage: u.32 s.21 cu0 cs0 - .0814% CPU load<br>
+    # 368 requests/sec - 2733 B/second - 7 B/request<br>
+    # 
+    # 1 requests currently being processed, 32 idle servers
+    # <PRE>___________W____........._________________......................
+    # ................................................................
+    # ................................................................
+    # </PRE>
 
-   $self{rx}{1} = qr{
-      Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+?
-      Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+(\d+)\s+[kmg]{0,1}B.+?
-      (\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+servers.+?
-      <PRE>([_SRWKDCLGI.\n]+)
-      </PRE>
-   }xs;
+    $self->{rx}->{1} = qr{
+        Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+?
+        Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+)\s+[kKmMgG]{0,1}B.+?
+        (\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+servers.+?
+        <PRE>([_SRWKDCLGI.\n]+)
+        </PRE>
+    }xs;
 
-   # EXAMPLE apache2
-   # <dl><dt>Server Version: Apache/2.2.3 (Debian) mod_fastcgi/2.4.2 mod_ssl/2.2.3 OpenSSL/0.9.8c</dt>
-   # <dt>Server Built: Jun 17 2007 20:24:06
-   # </dt></dl><hr /><dl>
-   # <dt>Current Time: Thursday, 13-Sep-2007 13:07:35 CEST</dt>
-   # <dt>Restart Time: Thursday, 13-Sep-2007 13:07:31 CEST</dt>
-   # <dt>Parent Server Generation: 1</dt>
-   # <dt>Server uptime:  3 seconds</dt>
-   # <dt>Total accesses: 0 - Total Traffic: 0 kB</dt>
-   # <dt>CPU Usage: u0 s0 cu0 cs0<dt>0 requests/sec - 0 B/second - </dt>
-   # <dt>2 requests currently being processed, 7 idle workers</dt>
-   # </dl><pre>_SRWKDCLGI.
-   # _SRWKDCLGI.
-   # </pre>
+    # EXAMPLE apache2
+    # <dl><dt>Server Version: Apache/2.2.3 (Debian) mod_fastcgi/2.4.2 mod_ssl/2.2.3 OpenSSL/0.9.8c</dt>
+    # <dt>Server Built: Jun 17 2007 20:24:06
+    # </dt></dl><hr /><dl>
+    # <dt>Current Time: Saturday, 13-Oct-2007 19:30:20 CEST</dt>
+    # <dt>Restart Time: Thursday, 11-Oct-2007 18:00:42 CEST</dt>
+    # <dt>Parent Server Generation: 0</dt>
+    # <dt>Server uptime:  2 days 1 hour 29 minutes 38 seconds</dt>
+    # <dt>Total accesses: 845 - Total Traffic: 3.8 MB</dt>
+    # <dt>CPU Usage: u.26 s.06 cu0 cs0 - .00018% CPU load</dt>
+    # <dt>.00474 requests/sec - 22 B/second - 4758 B/request</dt>
+    # <dt>1 requests currently being processed, 9 idle workers</dt>
+    # </dl><pre>_.__.__W__.__...................................................
+    # ................................................................
+    # ................................................................
+    # ................................................................
+    # </pre>
 
-   $self{rx}{2} = qr{
-      <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+?
-      Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+(\d+)\s+[kmg]{0,1}B</dt>.+?
-      <dt>(\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+workers</dt>.+
-      </dl><pre>([_SRWKDCLGI.\n]+)
-      </pre>
-   }xs;
+    $self->{rx}->{2} = qr{
+        <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+?
+        Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+)\s+[kKmMgG]{0,1}B</dt>.+?
+        <dt>(\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+workers</dt>.+
+        </dl><pre>([_SRWKDCLGI\.\s\n]+)
+        </pre>
+    }xs;
 
-   $self{ua} = LWP::UserAgent->new();
-   $self{ua}->protocols_allowed(['http']);
-
-   return bless \%self, $class;
+    $self->{stat_order} = [ qw/p ta tt r i _ S R W K D C L G I ./ ];
+    $self->{ua} = LWP::UserAgent->new();
+    $self->{ua}->protocols_allowed(['http']);
+    return $self;
 }
 
 sub get {
-   my $self = shift;
-   $self->request(@_) or return undef;
-   return $self->parse;
+    my $self = shift;
+    $self->request(@_) or return undef;
+    return $self->parse;
 }
 
 sub request {
-   my $self = shift;
+    my $self = shift;
 
-   my %opts = Params::Validate::validate(@_, {
-      url => {
-         type  => Params::Validate::SCALAR,
-         regex => qr{^http://.+},
-      },
-      timeout => {
-         type    => Params::Validate::SCALAR,
-         regex   => qr/^\d+\z/,
-         default => 180,
-      },
-   });
+    my %opts = Params::Validate::validate(@_, {
+        url => {
+            type  => Params::Validate::SCALAR,
+            regex => qr{^http://.+},
+        },
+        timeout => {
+            type    => Params::Validate::SCALAR,
+            regex   => qr/^\d+\z/,
+            default => 180,
+        },
+    });
 
-   $self->{ua}->timeout($opts{timeout});
-   my $response = $self->{ua}->get($opts{url});
+    $self->{ua}->timeout($opts{timeout});
+    my $response = $self->{ua}->get($opts{url});
 
-   return $self->_raise_error($response->status_line())
-      unless $response->is_success();
+    unless ($response->is_success()) {
+        return $self->_raise_error($response->status_line());
+    }
 
-   $self->{content} = $response->content();
+    $self->{content} = $response->content();
 
-   return $self->{content} ? 1 : undef;
+    return $self->{content} ? 1 : undef;
 }
 
-sub content {
-   $_[0]->{content};
-}
+sub content { $_[0]->{content} }
 
 sub parse {
-   my $self    = shift;
-   my $content = $_[0] ? shift : $self->{content};
-   $self->_raise_error("no content received") unless $content;
-   my $regexes = $self->{rx};
-   my %data    = map { $_ => 0 } qw(r i p ta tt _ S R W K D C L G I .);
+    my $self = shift;
+    my $content = $_[0] ? shift : $self->{content};
 
-   my ($version) = $content =~ m{Server\s+Version:\s+Apache/(\d)};
+    unless ($content) {
+        return $self->_raise_error("no content received");
+    }
 
-   return $self->_raise_error("unable to match the server version of apache")
-      unless $version;
+    my $regexes = $self->{rx};
+    my %data = map { $_ => 0 } @{$self->{stat_order}};
 
-   return $self->_raise_error("apache/$version is not supported")
-      unless exists $regexes->{$version};
+    my ($version) = $content =~ m{Server\s+Version:\s+Apache/(\d)};
 
-   my $rest = ();
+    unless ($version) {
+        return $self->_raise_error("unable to match the server version of apache");
+    }
 
-   ($data{p}, $data{ta}, $data{tt}, $data{r}, $data{i}, $rest) = $content =~ $regexes->{$version};
+    unless (exists $regexes->{$version}) {
+        return $self->_raise_error("apache/$version is not supported");
+    }
 
-   $rest =~ s/\n//g;
-   $data{$_}++ for (split //, $rest);
+    my $rest = ();
+    (@data{qw/p ta tt r i/}, $rest) = $content =~ $regexes->{$version};
+    $rest =~ s/[\s\n]//g;
+    $data{$_}++ for (split //, $rest);
+    $self->{data} = \%data;
 
-   return \%data;
+    return $self->{data};
 }
 
-sub errstr { return $ERRSTR }
+sub errstr { $Parse::Apache::ServerStatus::ERRSTR }
 
 #
 # private stuff
 #
 
 sub _raise_error {
-   my $self = shift;
-   $ERRSTR  = shift;
-   return undef;
+    $Parse::Apache::ServerStatus::ERRSTR = $_[1];
+    return undef;
 }
 
 1;
