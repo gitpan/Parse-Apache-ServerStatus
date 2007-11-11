@@ -5,7 +5,7 @@ WriteMakefile
           'NAME' => 'Parse::Apache::ServerStatus',
           'VERSION_FROM' => 'lib/Parse/Apache/ServerStatus.pm',
           'PREREQ_PM' => {
-                           'Carp' => '0',
+                           'Class::Accessor::Fast' => '0',
                            'LWP::UserAgent' => '0',
                            'Params::Validate' => '0',
                            'Test::More' => '0'

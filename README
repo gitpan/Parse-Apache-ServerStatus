@@ -5,21 +5,28 @@ NAME
 SYNOPSIS
         use Parse::Apache::ServerStatus;
 
-        my $prs = Parse::Apache::ServerStatus->new;
-
-        $prs->request(
+        my $prs = Parse::Apache::ServerStatus->new(
            url     => 'http://localhost/server-status',
            timeout => 30
-        ) or die $prs->errstr;
+        );
 
-        my $stat = $prs->parse or die $prs->errstr;
+        my $stat = $prs->get or die $prs->errstr;
+
+        # or
+
+        my $prs = Parse::Apache::ServerStatus->new;
+
+        foreach my $url (@urls) {
+            $prs->request(url => $url, timeout => 30) or die $prs->errstr;
+            my $stat = $prs->parse or die $prs->errstr;
+        }
 
         # or both in one step
 
-        my $stat = $prs->get(
-           url     => 'http://localhost/server-status',
-           timeout => 30
-        ) or die $prs->errstr;
+        foreach my $url (@urls) {
+            my $stat = $prs->get(url => $url, timeout => 30)
+                or die $prs->errstr;
+        }
 
 DESCRIPTION
     This module parses the content of apache's server-status and countes the
@@ -31,9 +38,7 @@ METHODS
     Call "new()" to create a new Parse::Apache::ServerStatus object.
 
   request()
-    This method excepts one or two arguments: "url" and "timeout". It
-    requests the url and safes the content into the object. The option
-    "timeout" is set to 180 seconds if it is not set.
+    This method requests the url and safes the content into the object.
 
   parse()
     Call "parse()" to parse the server status. This method returns a hash
@@ -41,8 +46,6 @@ METHODS
     contains the following counts:
 
         p    Parents
-        ta   Total accesses
-        tt   Total traffic
         r    Requests currenty being processed
         i    Idle workers
         _    Waiting for Connection
@@ -57,6 +60,11 @@ METHODS
         I    Idle cleanup of worker
         .    Open slot with no current process
 
+        The following keys are only available if extended server-status is activated.
+
+        ta   Total accesses
+        tt   Total traffic
+
     It's possible to call "parse()" with the content as argument.
 
         my $stat = $prs->parse($content);
@@ -65,9 +73,9 @@ METHODS
     content that is stored by "request()".
 
   get()
-    Call "get()" to "request()" and "parse()" in one step. It except the
-    same options like "request()" and returns the hash reference that is
-    returned by "parse()".
+    "get()" calls "request()" and "parse()" in one step. It's possible to
+    set the options "url" and "timeout" and it returns the hash reference
+    that is returned by "parse()".
 
   content()
     Call "content()" if you need the full content of server-status.
@@ -77,15 +85,46 @@ METHODS
   errstr()
     "errstr()" contains the error string if the requests fails.
 
+  ua()
+    Access the "LWP::UserAgent" object if you want to set your own
+    properties.
+
 OPTIONS
     There are only two options: "url" and "timeout".
 
     Set "url" with the complete url like "http://localhost/server-status".
-    There is only http supported, not https or other protocols.
+    There is only http supported by default, not https or other protocols.
 
     Set "timeout" to define the time in seconds to abort the request if
-    there is no response. The default is set to 180 secondes if the options
+    there is no response. The default is set to 180 seconds if the options
     isn't set.
+
+EXAMPLE
+        use strict;
+        use warnings;
+        use Parse::Apache::ServerStatus;
+
+        $|++;
+        my $prs = Parse::Apache::ServerStatus->new(
+            url => 'http://localhost/server-status',
+            timeout => 10
+        );
+        my @order    = qw/p r i _ S R W K D C L G I . ta tt/;
+        my $interval = 10;
+        my $header   = 20;
+
+        while ( 1 ) {
+            print map { sprintf("%8s", $_) } @order;
+            print "\n";
+            for (my $i = 0; $i <= $header; $i++) {
+                my $stat = $prs->get or die $prs->errstr;
+                exists $stat->{tt} or $stat->{tt} = 'n/a';
+                exists $stat->{ta} or $stat->{ta} = 'n/a';
+                print map { sprintf("%8s", $stat->{$_}) } @order;
+                print "\n";
+                sleep($interval);
+            }
+        }
 
 EXAMPLE CONFIGURATION FOR APACHE
     This is just an example to activate the handler server-status for
@@ -98,10 +137,16 @@ EXAMPLE CONFIGURATION FOR APACHE
             Allow from localhost
         </Location>
 
-DEPENDENCIES
-        Carp
+    If you want to activate extended server-status you have to set
+
+        Extended On
+
+    into the configuration file.
+
+PREREQUISITES
         LWP::UserAgent
         Params::Validate
+        Class::Accessor::Fast
 
 EXPORTS
     No exports.

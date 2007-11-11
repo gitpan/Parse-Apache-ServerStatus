@@ -12,7 +12,7 @@ my $build = Module::Build->new(
         'Test::More'       => 0,
         'Params::Validate' => 0,
         'LWP::UserAgent'   => 0,
-        'Carp'             => 0,
+        'Class::Accessor::Fast' => 0,
     },
     recommends         => {},
     sign               => 0,

@@ -6,21 +6,28 @@ Parse::Apache::ServerStatus - Simple module to parse apache's server-status.
 
     use Parse::Apache::ServerStatus;
 
-    my $prs = Parse::Apache::ServerStatus->new;
-
-    $prs->request(
+    my $prs = Parse::Apache::ServerStatus->new(
        url     => 'http://localhost/server-status',
        timeout => 30
-    ) or die $prs->errstr;
+    );
 
-    my $stat = $prs->parse or die $prs->errstr;
+    my $stat = $prs->get or die $prs->errstr;
+
+    # or
+
+    my $prs = Parse::Apache::ServerStatus->new;
+
+    foreach my $url (@urls) {
+        $prs->request(url => $url, timeout => 30) or die $prs->errstr;
+        my $stat = $prs->parse or die $prs->errstr;
+    }
 
     # or both in one step
 
-    my $stat = $prs->get(
-       url     => 'http://localhost/server-status',
-       timeout => 30
-    ) or die $prs->errstr;
+    foreach my $url (@urls) {
+        my $stat = $prs->get(url => $url, timeout => 30)
+            or die $prs->errstr;
+    }
 
 =head1 DESCRIPTION
 
@@ -36,9 +43,7 @@ Call C<new()> to create a new Parse::Apache::ServerStatus object.
 
 =head2 request()
 
-This method excepts one or two arguments: C<url> and C<timeout>. It requests the url
-and safes the content into the object. The option C<timeout> is set to 180 seconds if
-it is not set.
+This method requests the url and safes the content into the object.
 
 =head2 parse()
 
@@ -46,8 +51,6 @@ Call C<parse()> to parse the server status. This method returns a hash reference
 the parsed content. There are diffenrent keys that contains the following counts:
 
     p    Parents
-    ta   Total accesses
-    tt   Total traffic
     r    Requests currenty being processed
     i    Idle workers
     _    Waiting for Connection
@@ -62,6 +65,11 @@ the parsed content. There are diffenrent keys that contains the following counts
     I    Idle cleanup of worker
     .    Open slot with no current process
 
+    The following keys are only available if extended server-status is activated.
+
+    ta   Total accesses
+    tt   Total traffic
+
 It's possible to call C<parse()> with the content as argument.
 
     my $stat = $prs->parse($content);
@@ -71,8 +79,8 @@ stored by C<request()>.
 
 =head2 get()
 
-Call C<get()> to C<request()> and C<parse()> in one step. It except the same options like
-C<request()> and returns the hash reference that is returned by C<parse()>.
+C<get()> calls C<request()> and C<parse()> in one step. It's possible to set the options
+C<url> and C<timeout> and it returns the hash reference that is returned by C<parse()>.
 
 =head2 content()
 
@@ -84,15 +92,47 @@ Call C<content()> if you need the full content of server-status.
 
 C<errstr()> contains the error string if the requests fails.
 
+=head2 ua()
+
+Access the C<LWP::UserAgent> object if you want to set your own properties.
+
 =head1 OPTIONS
 
 There are only two options: C<url> and C<timeout>.
 
 Set C<url> with the complete url like C<http://localhost/server-status>.
-There is only http supported, not https or other protocols.
+There is only http supported by default, not https or other protocols.
 
 Set C<timeout> to define the time in seconds to abort the request if there is no
-response. The default is set to 180 secondes if the options isn't set.
+response. The default is set to 180 seconds if the options isn't set.
+
+=head1 EXAMPLE
+
+    use strict;
+    use warnings;
+    use Parse::Apache::ServerStatus;
+
+    $|++;
+    my $prs = Parse::Apache::ServerStatus->new(
+        url => 'http://localhost/server-status',
+        timeout => 10
+    );
+    my @order    = qw/p r i _ S R W K D C L G I . ta tt/;
+    my $interval = 10;
+    my $header   = 20;
+
+    while ( 1 ) {
+        print map { sprintf("%8s", $_) } @order;
+        print "\n";
+        for (my $i = 0; $i <= $header; $i++) {
+            my $stat = $prs->get or die $prs->errstr;
+            exists $stat->{tt} or $stat->{tt} = 'n/a';
+            exists $stat->{ta} or $stat->{ta} = 'n/a';
+            print map { sprintf("%8s", $stat->{$_}) } @order;
+            print "\n";
+            sleep($interval);
+        }
+    }
 
 =head1 EXAMPLE CONFIGURATION FOR APACHE
 
@@ -105,11 +145,17 @@ This is just an example to activate the handler server-status for localhost.
         Allow from localhost
     </Location>
 
-=head1 DEPENDENCIES
+If you want to activate extended server-status you have to set
 
-    Carp
+    Extended On
+
+into the configuration file.
+
+=head1 PREREQUISITES
+
     LWP::UserAgent
     Params::Validate
+    Class::Accessor::Fast
 
 =head1 EXPORTS
 
@@ -133,18 +179,20 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use strict;
 use warnings;
-use Carp qw(croak);
 use LWP::UserAgent;
 use Params::Validate;
-$Parse::Apache::ServerStatus::ERRSTR = defined;
+use base qw/Class::Accessor::Fast/;
+__PACKAGE__->mk_accessors(qw/ua/);
+use vars qw/$ERRSTR/;
+$ERRSTR = defined;
 
 sub new {
     my $class = shift || __PACKAGE__;
-    my $self  = bless {}, $class;
+    my $self  = bless { }, $class;
 
     # EXAMPLE apache
     # Server Version: Apache/1.3.34 (Ubuntu)<br>
@@ -166,11 +214,11 @@ sub new {
 
     $self->{rx}->{1} = qr{
         Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+?
-        Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+)\s+[kKmMgG]{0,1}B.+?
+        (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)<br>).+?|)
         (\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+servers.+?
         <PRE>([_SRWKDCLGI.\n]+)
         </PRE>
-    }xs;
+    }xsi;
 
     # EXAMPLE apache2
     # <dl><dt>Server Version: Apache/2.2.3 (Debian) mod_fastcgi/2.4.2 mod_ssl/2.2.3 OpenSSL/0.9.8c</dt>
@@ -192,15 +240,15 @@ sub new {
 
     $self->{rx}->{2} = qr{
         <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+?
-        Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+)\s+[kKmMgG]{0,1}B</dt>.+?
+        (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)</dt>).+?|)
         <dt>(\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+workers</dt>.+
         </dl><pre>([_SRWKDCLGI\.\s\n]+)
         </pre>
-    }xs;
+    }xsi;
 
-    $self->{stat_order} = [ qw/p ta tt r i _ S R W K D C L G I ./ ];
-    $self->{ua} = LWP::UserAgent->new();
-    $self->{ua}->protocols_allowed(['http']);
+    $self->ua(LWP::UserAgent->new);
+    $self->ua->protocols_allowed(['http']);
+    $self->_set(@_) if @_;
     return $self;
 }
 
@@ -212,28 +260,20 @@ sub get {
 
 sub request {
     my $self = shift;
+    $self->_set(@_) if @_;
 
-    my %opts = Params::Validate::validate(@_, {
-        url => {
-            type  => Params::Validate::SCALAR,
-            regex => qr{^http://.+},
-        },
-        timeout => {
-            type    => Params::Validate::SCALAR,
-            regex   => qr/^\d+\z/,
-            default => 180,
-        },
-    });
+    unless ($self->{url}) {
+        return $self->_raise_error("missing mandatory option 'url'");
+    }
 
-    $self->{ua}->timeout($opts{timeout});
-    my $response = $self->{ua}->get($opts{url});
+    $self->ua->timeout($self->{timeout});
+    my $response = $self->ua->get($self->{url});
 
     unless ($response->is_success()) {
         return $self->_raise_error($response->status_line());
     }
 
     $self->{content} = $response->content();
-
     return $self->{content} ? 1 : undef;
 }
 
@@ -247,36 +287,61 @@ sub parse {
         return $self->_raise_error("no content received");
     }
 
-    my $regexes = $self->{rx};
-    my %data = map { $_ => 0 } @{$self->{stat_order}};
-
     my ($version) = $content =~ m{Server\s+Version:\s+Apache/(\d)};
 
     unless ($version) {
         return $self->_raise_error("unable to match the server version of apache");
     }
 
-    unless (exists $regexes->{$version}) {
+    my $regex = $self->{rx};
+    my %data = map { $_ => 0 } qw/p r i _ S R W K D C L G I ./;
+
+    unless (exists $regex->{$version}) {
         return $self->_raise_error("apache/$version is not supported");
     }
 
-    my $rest = ();
-    (@data{qw/p ta tt r i/}, $rest) = $content =~ $regexes->{$version};
-    $rest =~ s/[\s\n]//g;
-    $data{$_}++ for (split //, $rest);
-    $self->{data} = \%data;
+    my ($ta, $tt, $rest);
+    ($data{p}, $ta, $tt, $data{r}, $data{i}, $rest) =
+        $content =~ $regex->{$version};
 
-    return $self->{data};
+    unless ($rest) {
+        return $self->_raise_error("the content couldn't be parsed");
+    }
+
+    $data{$_}++ for (split //, $rest);
+
+    if (defined $ta) {
+        @data{qw/ta tt/} = ($ta, $tt);
+    }
+
+    return \%data;
 }
 
-sub errstr { $Parse::Apache::ServerStatus::ERRSTR }
+sub errstr { $ERRSTR }
 
 #
 # private stuff
 #
 
+sub _set {
+    my $self = shift;
+    my %opts = Params::Validate::validate(@_, {
+        url => {
+            type  => Params::Validate::SCALAR,
+            regex => qr{^http://.+},
+        },
+        timeout => {
+            type    => Params::Validate::SCALAR,
+            regex   => qr/^\d+\z/,
+            default => 180,
+        },
+    });
+    $self->{url} = $opts{url};
+    $self->{timeout} = $opts{timeout};
+}
+
 sub _raise_error {
-    $Parse::Apache::ServerStatus::ERRSTR = $_[1];
+    $ERRSTR = $_[1];
     return undef;
 }
 
