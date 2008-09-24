@@ -179,7 +179,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use strict;
 use warnings;
@@ -309,6 +309,7 @@ sub parse {
     }
 
     $data{$_}++ for (split //, $rest);
+    delete $data{"\n"};
 
     if (defined $ta) {
         @data{qw/ta tt/} = ($ta, $tt);

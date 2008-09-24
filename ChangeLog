@@ -1,3 +1,6 @@
+0.06    Released at 2008-09-24.
+        Fixed a bug... newlines were not deleted from the statistics.
+
 0.05    Released at 2007-11-11.
         Fixed regexes because they matched only if extended server-status
           was activated. Now it should match ever.
@@ -11,4 +14,4 @@
 0.02	Released at 2007-07-10.
         Did some code improvements that annoys me a long time.
 0.01	Released at 2007-04-29.
-x.xx    Thanks to Larry Wall and all other Perl developer for Perl :-)
+x.xx    Thanks to Larry Wall and all other Perl developers for Perl :-)
