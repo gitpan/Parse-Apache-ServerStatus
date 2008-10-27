@@ -6,6 +6,9 @@ Parse::Apache::ServerStatus - Simple module to parse apache's server-status.
 
     use Parse::Apache::ServerStatus;
 
+    my $url = 'http://localhost/server-status';
+    # or http://localhost/server-status?auto
+
     my $prs = Parse::Apache::ServerStatus->new(
        url     => 'http://localhost/server-status',
        timeout => 30
@@ -50,7 +53,7 @@ This method requests the url and safes the content into the object.
 Call C<parse()> to parse the server status. This method returns a hash reference with
 the parsed content. There are diffenrent keys that contains the following counts:
 
-    p    Parents
+    p    Parents (this key will be kicked in future releases, dont use it)
     r    Requests currenty being processed
     i    Idle workers
     _    Waiting for Connection
@@ -65,10 +68,13 @@ the parsed content. There are diffenrent keys that contains the following counts
     I    Idle cleanup of worker
     .    Open slot with no current process
 
-    The following keys are only available if extended server-status is activated.
+    The following keys are set to 0 if extended server-status is not activated.
 
     ta   Total accesses
     tt   Total traffic
+    rs   Requests per second
+    bs   Bytes per second
+    br   Bytes per request
 
 It's possible to call C<parse()> with the content as argument.
 
@@ -179,7 +185,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.06';
+our $VERSION = '0.07_01';
 
 use strict;
 use warnings;
@@ -194,7 +200,52 @@ sub new {
     my $class = shift || __PACKAGE__;
     my $self  = bless { }, $class;
 
+    # Total Accesses: 5
+    # Total kBytes: 8
+    # Uptime: 70
+    # ReqPerSec: .0714286
+    # BytesPerSec: 117.029
+    # BytesPerReq: 1638.4
+    # BusyWorkers: 2
+    # IdleWorkers: 10
+    # Scoreboard: ___WW_______.........
+
+    $self->{rx}->{auto} = qr/
+        (?:
+        Total\s+Accesses:\s*(\d+).*
+        Total\s+kBytes:\s*([\d\.]+).*
+        ReqPerSec:\s*([\d\.]+).*
+        BytesPerSec:\s*([\d\.]+).*
+        BytesPerReq:\s*([\d\.]+).*
+        |)
+        BusyWorkers:\s*([\d\.]+).*
+        IdleWorkers:\s*(\d+).*
+        Scoreboard:\s*(.+)
+    /xsi;
+
     # EXAMPLE apache
+    # <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+    # <HTML><HEAD>
+    # <TITLE>Apache Status</TITLE>
+    # </HEAD><BODY>
+    # <H1>Apache Server Status for localhost</H1>
+    # 
+    # Server Version: Apache/1.3.34 (Ubuntu)<br>
+    # Server Built: Mar  8 2007 00:01:35<br>
+    # <hr>
+    # 
+    # Current Time: Monday, 27-Oct-2008 16:57:03 CET<br>
+    # Restart Time: Monday, 27-Oct-2008 16:56:55 CET<br>
+    # Parent Server Generation: 1 <br>
+    # Server uptime:  8 seconds<br>
+    # 
+    # 1 requests currently being processed, 5 idle servers
+    # <PRE>W_____..........................................................
+    # ................................................................
+    # ................................................................
+    # </PRE>
+
+    # EXAMPLE apache extended
     # Server Version: Apache/1.3.34 (Ubuntu)<br>
     # Server Built: Mar  8 2007 00:01:35<br>
     # <hr>
@@ -215,12 +266,34 @@ sub new {
     $self->{rx}->{1} = qr{
         Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+?
         (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)<br>).+?|)
+        (?:([\d\.]+)\s+requests/sec\s+-\s+(\d+)\s+B/second\s+-\s+(\d+)\s+B/request<br>.+|)
         (\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+servers.+?
         <PRE>([_SRWKDCLGI.\n]+)
         </PRE>
     }xsi;
 
     # EXAMPLE apache2
+    # <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+    # <html><head>
+    # <title>Apache Status</title>
+    # </head><body>
+    # <h1>Apache Server Status for www.bloonix.de</h1>
+    # 
+    # <dl><dt>Server Version: Apache/2.2.3 (Debian) mod_fastcgi/2.4.2 mod_ssl/2.2.3 OpenSSL/0.9.8c</dt>
+    # <dt>Server Built: Mar 22 2008 09:29:10
+    # </dt></dl><hr /><dl>
+    # <dt>Current Time: Monday, 27-Oct-2008 16:07:52 CET</dt>
+    # <dt>Restart Time: Monday, 27-Oct-2008 16:07:46 CET</dt>
+    # <dt>Parent Server Generation: 0</dt>
+    # <dt>Server uptime:  6 seconds</dt>
+    # <dt>1 requests currently being processed, 9 idle workers</dt>
+    # </dl><pre>W_________......................................................
+    # ................................................................
+    # ................................................................
+    # ................................................................
+    # </pre>
+
+    # EXAMPLE apache2 extended
     # <dl><dt>Server Version: Apache/2.2.3 (Debian) mod_fastcgi/2.4.2 mod_ssl/2.2.3 OpenSSL/0.9.8c</dt>
     # <dt>Server Built: Jun 17 2007 20:24:06
     # </dt></dl><hr /><dl>
@@ -240,7 +313,8 @@ sub new {
 
     $self->{rx}->{2} = qr{
         <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+?
-        (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)</dt>).+?|)
+        (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)</dt>).+|)
+        (?:(?:<dt>([\d\.]+)\s+requests/sec\s+-\s+(\d+)\s+B/second\s+-\s+(\d+)\s+B/request</dt>).+|)
         <dt>(\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+workers</dt>.+
         </dl><pre>([_SRWKDCLGI\.\s\n]+)
         </pre>
@@ -262,14 +336,14 @@ sub request {
     my $self = shift;
     $self->_set(@_) if @_;
 
-    unless ($self->{url}) {
+    if (!$self->{url}) {
         return $self->_raise_error("missing mandatory option 'url'");
     }
 
     $self->ua->timeout($self->{timeout});
     my $response = $self->ua->get($self->{url});
 
-    unless ($response->is_success()) {
+    if (!$response->is_success()) {
         return $self->_raise_error($response->status_line());
     }
 
@@ -283,39 +357,46 @@ sub parse {
     my $self = shift;
     my $content = $_[0] ? shift : $self->{content};
 
-    unless ($content) {
+    if (!$content) {
         return $self->_raise_error("no content received");
+    }
+
+    if ($content =~ /^(?:Total|BusyWorkers)/) {
+        return $self->_parse_auto($content);
     }
 
     my ($version) = $content =~ m{Server\s+Version:\s+Apache/(\d)};
 
-    unless ($version) {
+    if (!$version) {
         return $self->_raise_error("unable to match the server version of apache");
     }
 
     my $regex = $self->{rx};
-    my %data = map { $_ => 0 } qw/p r i _ S R W K D C L G I ./;
+    my %data  = ();
+    my $rest  = ();
 
-    unless (exists $regex->{$version}) {
+    if (!exists $regex->{$version}) {
         return $self->_raise_error("apache/$version is not supported");
     }
 
-    my ($ta, $tt, $rest);
-    ($data{p}, $ta, $tt, $data{r}, $data{i}, $rest) =
-        $content =~ $regex->{$version};
+    ( $data{p}
+    , $data{ta}
+    , $data{tt}
+    , $data{rs}
+    , $data{bs}
+    , $data{br}
+    , $data{r}
+    , $data{i}
+    , $rest
+    ) = $content =~ $regex->{$version};
 
-    unless ($rest) {
+    if (!$rest) {
         return $self->_raise_error("the content couldn't be parsed");
     }
 
     $data{$_}++ for (split //, $rest);
     delete $data{"\n"};
-
-    if (defined $ta) {
-        @data{qw/ta tt/} = ($ta, $tt);
-    }
-
-    return \%data;
+    return $self->_data(\%data)
 }
 
 sub errstr { $ERRSTR }
@@ -323,6 +404,43 @@ sub errstr { $ERRSTR }
 #
 # private stuff
 #
+
+sub _data {
+    my ($self, $data) = @_;
+
+    foreach my $key (qw/p r i _ S R W K D C L G I . ta tt ts bs br/) {
+        if (!defined $data->{$key}) {
+            $data->{$key} = 0;
+        }
+    }
+
+    return $data;
+}
+
+sub _parse_auto {
+    my $self    = shift;
+    my $content = $_[0] ? shift : $self->{content};
+    my %data    = ();
+    my $rest    = '';
+
+    ( $data{ta}
+    , $data{tt}
+    , $data{rs}
+    , $data{bs}
+    , $data{br}
+    , $data{r}
+    , $data{i}
+    , $rest
+    ) = $content =~ $self->{rx}->{auto};
+
+    if (!$rest) {
+        return $self->_raise_error("the content couldn't be parsed");
+    }
+
+    $data{$_}++ for (split //, $rest);
+    delete $data{"\n"};
+    return $self->_data(\%data);
+}
 
 sub _set {
     my $self = shift;

@@ -5,6 +5,9 @@ NAME
 SYNOPSIS
         use Parse::Apache::ServerStatus;
 
+        my $url = 'http://localhost/server-status';
+        # or http://localhost/server-status?auto
+
         my $prs = Parse::Apache::ServerStatus->new(
            url     => 'http://localhost/server-status',
            timeout => 30
@@ -45,7 +48,7 @@ METHODS
     reference with the parsed content. There are diffenrent keys that
     contains the following counts:
 
-        p    Parents
+        p    Parents (this key will be kicked in future releases, dont use it)
         r    Requests currenty being processed
         i    Idle workers
         _    Waiting for Connection
@@ -60,10 +63,13 @@ METHODS
         I    Idle cleanup of worker
         .    Open slot with no current process
 
-        The following keys are only available if extended server-status is activated.
+        The following keys are set to 0 if extended server-status is not activated.
 
         ta   Total accesses
         tt   Total traffic
+        rs   Requests per second
+        bs   Bytes per second
+        br   Bytes per request
 
     It's possible to call "parse()" with the content as argument.
 
