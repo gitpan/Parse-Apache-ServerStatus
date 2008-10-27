@@ -185,7 +185,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.07_01';
+our $VERSION = '0.07_02';
 
 use strict;
 use warnings;
@@ -210,7 +210,7 @@ sub new {
     # IdleWorkers: 10
     # Scoreboard: ___WW_______.........
 
-    $self->{rx}->{auto} = qr/
+    $self->{rxauto} = qr/
         (?:
         Total\s+Accesses:\s*(\d+).*
         Total\s+kBytes:\s*([\d\.]+).*
@@ -365,7 +365,7 @@ sub parse {
         return $self->_parse_auto($content);
     }
 
-    my ($version) = $content =~ m{Server\s+Version:\s+Apache/(\d)};
+    my $version = $self->_version($content);
 
     if (!$version) {
         return $self->_raise_error("unable to match the server version of apache");
@@ -405,6 +405,24 @@ sub errstr { $ERRSTR }
 # private stuff
 #
 
+sub _version {
+    my ($self, $content) = @_;
+    my $version;
+
+    if ($content =~ m{Server\s+Version:\s+Apache/(\d)}) {
+        $version = $1;
+    } else {
+        while (my ($v, $rx) = each %{$self->{rx}}) {
+            if ($content =~ $rx) {
+                $version = $v;
+                last;
+            }
+        }
+    }
+
+    return $version;
+}
+
 sub _data {
     my ($self, $data) = @_;
 
@@ -431,7 +449,7 @@ sub _parse_auto {
     , $data{r}
     , $data{i}
     , $rest
-    ) = $content =~ $self->{rx}->{auto};
+    ) = $content =~ $self->{rxauto};
 
     if (!$rest) {
         return $self->_raise_error("the content couldn't be parsed");

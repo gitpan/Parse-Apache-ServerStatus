@@ -1,3 +1,7 @@
+0.07_02 Released at 2008-10-27.
+        - If the apache version couldn't be determined then each
+          regex for each apache version is checked.
+
 0.07_01 Released at 2008-10-27.
         - Added keys rs, bs and br.
         - Now it's possible to parse server-status?auto.
