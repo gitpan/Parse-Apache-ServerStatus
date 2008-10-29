@@ -109,23 +109,23 @@ EXAMPLE
         use strict;
         use warnings;
         use Parse::Apache::ServerStatus;
-
+    
         $|++;
         my $prs = Parse::Apache::ServerStatus->new(
             url => 'http://localhost/server-status',
+            # url => 'http://localhost/server-status?auto',
             timeout => 10
         );
-        my @order    = qw/p r i _ S R W K D C L G I . ta tt/;
+    
+        my @order    = qw/p r i _ S R W K D C L G I . ta tt ts bs br/;
         my $interval = 10;
         my $header   = 20;
-
+    
         while ( 1 ) {
             print map { sprintf("%8s", $_) } @order;
             print "\n";
             for (my $i = 0; $i <= $header; $i++) {
                 my $stat = $prs->get or die $prs->errstr;
-                exists $stat->{tt} or $stat->{tt} = 'n/a';
-                exists $stat->{ta} or $stat->{ta} = 'n/a';
                 print map { sprintf("%8s", $stat->{$_}) } @order;
                 print "\n";
                 sleep($interval);
@@ -136,16 +136,13 @@ EXAMPLE CONFIGURATION FOR APACHE
     This is just an example to activate the handler server-status for
     localhost.
 
+        Extended On
         <Location /server-status>
             SetHandler server-status
             Order Deny,Allow
             Deny from all
             Allow from localhost
         </Location>
-
-    If you want to activate extended server-status you have to set
-
-        Extended On
 
     into the configuration file.
 

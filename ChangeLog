@@ -1,3 +1,6 @@
+0.08    Released at 2008-10-29.
+        - Just a full version.
+
 0.07_02 Released at 2008-10-27.
         - If the apache version couldn't be determined then each
           regex for each apache version is checked.
