@@ -1,6 +1,6 @@
 ---
 name: Parse-Apache-ServerStatus
-version: 0.08
+version: 0.09
 author:
   - Jonny Schulz
 abstract: Simple module to parse apache's server-status.
@@ -15,8 +15,8 @@ requires:
 provides:
   Parse::Apache::ServerStatus:
     file: lib/Parse/Apache/ServerStatus.pm
-    version: 0.08
-generated_by: Module::Build version 0.2808
+    version: 0.09
+generated_by: Module::Build version 0.3
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2

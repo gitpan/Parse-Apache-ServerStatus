@@ -125,7 +125,7 @@ response. The default is set to 180 seconds if the options isn't set.
         timeout => 10
     );
     
-    my @order    = qw/p r i _ S R W K D C L G I . ta tt ts bs br/;
+    my @order    = qw/p r i _ S R W K D C L G I . ta tt rs bs br/;
     my $interval = 10;
     my $header   = 20;
     
@@ -144,7 +144,7 @@ response. The default is set to 180 seconds if the options isn't set.
 
 This is just an example to activate the handler server-status for localhost.
 
-    Extended On
+    ExtendedStatus On
     <Location /server-status>
         SetHandler server-status
         Order Deny,Allow
@@ -174,7 +174,7 @@ Jonny Schulz <jschulz.cpan(at)bloonix.de>.
 
 =head1 COPYRIGHT
 
-Copyright (C) 2007 by Jonny Schulz. All rights reserved.
+Copyright (C) 2007-2008 by Jonny Schulz. All rights reserved.
 
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -182,7 +182,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use strict;
 use warnings;
@@ -423,7 +423,7 @@ sub _version {
 sub _data {
     my ($self, $data) = @_;
 
-    foreach my $key (qw/p r i _ S R W K D C L G I . ta tt ts bs br/) {
+    foreach my $key (qw/p r i _ S R W K D C L G I . ta tt rs bs br/) {
         if (!defined $data->{$key}) {
             $data->{$key} = 0;
         }
