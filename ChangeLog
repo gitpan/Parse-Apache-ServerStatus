@@ -1,3 +1,6 @@
+0.10    Released at 2010-05-25.
+        - Fixed a bug - rt #54750.
+
 0.09    Released at 2008-12-16.
         - Renamed key 'ts' to 'rs'. The key 'rs' was documented
           but were returned as 'ts'.

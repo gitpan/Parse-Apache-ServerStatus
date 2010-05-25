@@ -109,19 +109,19 @@ EXAMPLE
         use strict;
         use warnings;
         use Parse::Apache::ServerStatus;
-    
-        $|++;
+        
+    $|++;
         my $prs = Parse::Apache::ServerStatus->new(
             url => 'http://localhost/server-status',
             # url => 'http://localhost/server-status?auto',
             timeout => 10
         );
-    
-        my @order    = qw/p r i _ S R W K D C L G I . ta tt rs bs br/;
+        
+    my @order    = qw/p r i _ S R W K D C L G I . ta tt rs bs br/;
         my $interval = 10;
         my $header   = 20;
-    
-        while ( 1 ) {
+        
+    while ( 1 ) {
             print map { sprintf("%8s", $_) } @order;
             print "\n";
             for (my $i = 0; $i <= $header; $i++) {
@@ -161,7 +161,7 @@ AUTHOR
     Jonny Schulz <jschulz.cpan(at)bloonix.de>.
 
 COPYRIGHT
-    Copyright (C) 2007-2008 by Jonny Schulz. All rights reserved.
+    Copyright (C) 2007-2010 by Jonny Schulz. All rights reserved.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

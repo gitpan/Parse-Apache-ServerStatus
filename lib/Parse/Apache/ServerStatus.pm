@@ -174,7 +174,7 @@ Jonny Schulz <jschulz.cpan(at)bloonix.de>.
 
 =head1 COPYRIGHT
 
-Copyright (C) 2007-2008 by Jonny Schulz. All rights reserved.
+Copyright (C) 2007-2010 by Jonny Schulz. All rights reserved.
 
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -182,7 +182,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 package Parse::Apache::ServerStatus;
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use strict;
 use warnings;
@@ -262,8 +262,10 @@ sub new {
 
     $self->{rx}->{1} = qr{
         Parent\s+Server\s+Generation:\s+(\d+)\s+<br>.+?
-        (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)<br>).+?|)
-        (?:([\d\.]+)\s+requests/sec\s+-\s+(\d+)\s+B/second\s+-\s+(\d+)\s+B/request<br>.+|)
+        (?:
+            Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)<br>.+
+            ([\d\.]+)\s+requests/sec\s+-\s+([\d\.]+\s+[kmg]{0,1}B)/second\s+-\s+([\d\.]+\s+[kmg]{0,1}B)/request<br>.+
+        ){0,1}
         (\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+servers.+?
         <PRE>([_SRWKDCLGI.\n]+)
         </PRE>
@@ -310,8 +312,10 @@ sub new {
 
     $self->{rx}->{2} = qr{
         <dt>Parent\s+Server\s+Generation:\s+(\d+)</dt>.+?
-        (?:(?:Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)</dt>).+|)
-        (?:(?:<dt>([\d\.]+)\s+requests/sec\s+-\s+(\d+)\s+B/second\s+-\s+(\d+)\s+B/request</dt>).+|)
+        (?:
+            Total\s+accesses:\s+(\d+)\s+\-\s+Total\s+Traffic:\s+([0-9\.]+\s+[kmg]{0,1}B)</dt>.+
+            <dt>([\d\.]+)\s+requests/sec\s+-\s+([\d\.]+\s+[kmg]{0,1}B)/second\s+-\s+([\d\.]+\s+[kmg]{0,1}B)/request</dt>.+
+        ){0,1}
         <dt>(\d+)\s+requests\s+currently\s+being\s+processed,\s+(\d+)\s+idle\s+workers</dt>.+
         </dl><pre>([_SRWKDCLGI\.\s\n]+)
         </pre>
@@ -423,9 +427,28 @@ sub _version {
 sub _data {
     my ($self, $data) = @_;
 
-    foreach my $key (qw/p r i _ S R W K D C L G I . ta tt rs bs br/) {
+    foreach my $key (qw/p r i _ S R W K D C L G I . ta tt rs/) {
         if (!defined $data->{$key}) {
             $data->{$key} = 0;
+        }
+    }
+
+    foreach my $key (qw/bs br/) {
+        if (!defined $data->{$key}) {
+            $data->{$key} = 0;
+        } elsif ($data->{$key} =~ /^([\d\.]+)\s+([kmg]{0,1}B)/i) {
+            my ($s, $b) = ($1, $2);
+            $b = lc($b);
+
+            if ($b eq 'b') {
+                $data->{$key} = $s;
+            } elsif ($b eq 'kb') {
+                $data->{$key} = $s * 1024;
+            } elsif ($b eq 'mb') {
+                $data->{$key} = $s * 1048576;
+            } elsif ($b eq 'gb') {
+                $data->{$key} = $s * 1073741824;
+            }
         }
     }
 

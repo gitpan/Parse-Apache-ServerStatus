@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 26;
+use Test::More tests => 31;
 use Parse::Apache::ServerStatus;
 
 my $status_auto = <<EOT;
@@ -54,7 +54,7 @@ Parent Server Generation: 0 <br>
 Server uptime:  10 minutes 51 seconds<br>
 Total accesses: 239409 - Total Traffic: 1.7 MB<br>
 CPU Usage: u.32 s.21 cu0 cs0 - .0814% CPU load<br>
-368 requests/sec - 2733 B/second - 7 B/request<br>
+368 requests/sec - 7.3 MB/second - 6.3 kB/request<br>
 
 1 requests currently being processed, 32 idle servers
 <PRE>___________W____........._________________......................
@@ -125,7 +125,8 @@ my $status2e = <<EOT;
 <dt>Parent Server Generation: 0</dt>
 <dt>Server uptime:  31 minutes 33 seconds</dt>
 <dt>Total accesses: 27 - Total Traffic: 3.8 mB</dt>
-<dt>CPU Usage: u0 s0 cu0 cs0<dt>.0143 requests/sec - 27 B/second - 1896 B/request</dt>
+<dt>CPU Usage: u0 s0 cu0 cs0</dt>
+<dt>.0143 requests/sec - 7.3 MB/second - 6.7 kB/request</dt>
 <dt>1 requests currently being processed, 9 idle workers</dt>
 </dl><pre>W_________________..............................................
 ................................................................
@@ -175,6 +176,8 @@ ok($ret->{W} == 1, "rest apache");
 $ret = $prs->parse($status1e) or die $prs->errstr;
 ok($ret->{ta} == 239409, "total accesses apache extended");
 ok($ret->{tt} eq '1.7 MB', "total traffic apache extended");
+ok($ret->{bs} eq '7654604.8', "bytes per second apache extended");
+ok($ret->{br} eq '6451.2', "bytes per request apache extended");
 ok($ret->{r} == 1, "requests apache extended");
 ok($ret->{i} == 32, "idles apache extended");
 ok($ret->{W} == 1, "rest apache extended");
@@ -190,6 +193,9 @@ ok($ret->{W} == 1, "rest apache2");
 $ret = $prs->parse($status2e) or die $prs->errstr;
 ok($ret->{ta} == 27, "total accesses apache2 extended");
 ok($ret->{tt} eq '3.8 mB', "total traffic apache2 extended");
+ok($ret->{rs} eq '.0143', "requests per second apache2 extended");
+ok($ret->{bs} eq '7654604.8', "bytes per second apache2 extended");
+ok($ret->{br} eq '6860.8', "bytes per request apache2 extended");
 ok($ret->{r} == 1, "requests apache2 extended");
 ok($ret->{i} == 9, "idles apache2 extended");
 ok($ret->{W} == 1, "rest apache2 extended");
